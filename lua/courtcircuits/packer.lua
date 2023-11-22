@@ -37,11 +37,6 @@ return require('packer').startup(function(use)
       require("toggleterm").setup()
     end
   })
-  use({
-    "iamcco/markdown-preview.nvim",
-    run = function() vim.fn["mkdp#util#install"]() end,
-})
-
   use({ "iamcco/markdown-preview.nvim", run = "cd app && npm install", setup = function() vim.g.mkdp_filetypes = { "markdown" } end, ft = { "markdown" }, })
   use({
     "windwp/nvim-autopairs",
@@ -69,7 +64,31 @@ return require('packer').startup(function(use)
     'goolord/alpha-nvim',
     requires = { 'nvim-tree/nvim-web-devicons' },
     config = function()
-      require('alpha').setup(require('alpha.themes.startify').opts)
+      local alpha = require'alpha'
+         local dashboard = require'alpha.themes.dashboard'
+         dashboard.section.header.val = {
+             [[  __      _ ]],
+             [[o'')}____// ]],
+             [[ `_/      ) ]],
+             [[ (_(_/-(_/  ]]
+         }
+         dashboard.section.buttons.val = {
+             dashboard.button( "e", "  New file" , ":ene <BAR> startinsert <CR>"),
+             dashboard.button( "q", "󰅚  Quit NVIM" , ":qa<CR>"),
+             -- quick go to file 1
+             dashboard.button( "1", "󰏤  Recently opened files" , ":Telescope oldfiles<CR>"),
+             dashboard.button( "f", "󰍉  Find file" , ":Telescope find_files<CR>"),
+         }
+         local handle = io.popen('fortune')
+         local fortune = handle:read("*a")
+         handle:close()
+         dashboard.section.footer.val = fortune
+
+         dashboard.config.opts.noautocmd = true
+
+         vim.cmd[[autocmd User AlphaReady echo 'ready']]
+
+         alpha.setup(dashboard.config)
     end
   })
   use {
