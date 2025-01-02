@@ -1,12 +1,8 @@
 return {
-  {
-    "craftzdog/solarized-osaka.nvim",
-    lazy = true,
+{'AlexvZyl/nordic.nvim',
+    lazy = false,
     priority = 1000,
-    opts = function()
-      return {
-        transparent = true,
-      }
-    end,
-  },
+    config = function()
+        require('nordic').load()
+    end},
 }
