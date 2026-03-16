@@ -21,3 +21,4 @@ vim.keymap.set("n", "<leader>pe", builtin.diagnostics)
 
 vim.keymap.set('v', '<', '<gv')
 vim.keymap.set('v', '>', '>gv')
+
