@@ -13,7 +13,8 @@ vim.lsp.enable({
 	"gopls",
 	"basedpyright",
 	"tofu_ls",
-	"kotlin_lsp"
+	"kotlin_lsp",
+	"metals"
 })
 
 require('lspconfig').gleam.setup({})
