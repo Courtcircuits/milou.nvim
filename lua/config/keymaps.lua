@@ -22,3 +22,20 @@ vim.keymap.set("n", "<leader>pe", builtin.diagnostics)
 vim.keymap.set('v', '<', '<gv')
 vim.keymap.set('v', '>', '>gv')
 
+
+function insertFullPath()
+  local filepath = vim.fn.expand('%')
+  vim.fn.setreg('+', filepath) -- write to clippoard
+end
+
+vim.keymap.set('n', '<leader>y', insertFullPath, { noremap = true, silent = true })
+
+function insertFilePathWithLines()
+  local filepath = vim.fn.expand('%')
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
+  local result = filepath .. '#L' .. start_line .. '-L' .. end_line
+  vim.fn.setreg('+', result)
+end
+
+vim.keymap.set('v', '<leader>y', insertFilePathWithLines, { noremap = true, silent = true })

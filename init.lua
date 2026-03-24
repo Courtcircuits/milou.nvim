@@ -37,7 +37,8 @@ vim.pack.add({
 	{ src = "https://github.com/MunifTanjim/nui.nvim"},
 	{ src = "https://github.com/giusgad/hologram.nvim"},
 	{ src = "https://github.com/giusgad/pets.nvim" }, -- really important
-	{ src = "https://github.com/github/copilot.vim" }
+	{ src = "https://github.com/github/copilot.vim" },
+	{ src = "https://github.com/danfry1/lume"}
 })
 
 
@@ -58,4 +59,4 @@ require("config.gh")
 require("config.imgpaste")
 require("config.pets")
 
-vim.cmd("colorscheme rose-pine")
+vim.cmd("colorscheme lume")
