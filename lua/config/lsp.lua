@@ -17,15 +17,3 @@ vim.lsp.enable({
 	"metals"
 })
 
-require('lspconfig').gleam.setup({})
-
-require('lspconfig').rust_analyzer.setup({
-	settings = {
-
-		["rust-analyzer"] = {
-			check = {
-				command = "clippy",
-			}
-		}
-	}
-})
