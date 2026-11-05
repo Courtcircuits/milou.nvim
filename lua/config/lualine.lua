@@ -22,7 +22,7 @@ require('lualine').setup {
 		lualine_a = { 'mode' },
 		lualine_b = { 'branch', 'diff', 'diagnostics' },
 		lualine_c = { 'filename' },
-		lualine_x = { function() return require('config.pairwork').statusline() end, 'filetype' },
+		lualine_x = { 'filetype' },
 		lualine_y = { 'progress' },
 		lualine_z = { 'location' }
 	},

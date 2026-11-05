@@ -18,10 +18,11 @@ vim.pack.add({
 	{ src = 'https://github.com/hrsh7th/cmp-vsnip' },
 	{ src = 'https://github.com/hrsh7th/vim-vsnip' },
 	{ src = 'https://github.com/nvim-lua/plenary.nvim' },
+	{ src = 'https://github.com/ThePrimeagen/harpoon',            version = 'harpoon2' },
 	{ src = 'https://github.com/nvim-lualine/lualine.nvim' },
 	{ src = "https://github.com/tpope/vim-fugitive" },
 	{ src = "https://github.com/lewis6991/gitsigns.nvim" },
-	{ src = "https://github.com/esmuellert/codediff.nvim" },
+	{ src = "https://github.com/sindrets/diffview.nvim" },
 	{ src = "https://github.com/nvim-tree/nvim-web-devicons.git" },
 	{ src = "https://github.com/benomahony/uv.nvim" },
 	{ src = "https://github.com/m4xshen/autoclose.nvim" },
@@ -33,11 +34,10 @@ vim.pack.add({
 	{ src = "https://github.com/img-paste-devs/img-paste.vim"},
 	{ src = "https://github.com/MunifTanjim/nui.nvim"},
 	{ src = "https://github.com/giusgad/hologram.nvim"},
+	{ src = "https://github.com/giusgad/pets.nvim" }, -- really important
 	{ src = "https://github.com/github/copilot.vim" },
 	{ src = "https://github.com/neovim/nvim-lspconfig" },
-	{ src = "https://github.com/danfry1/lume"},
-    {src = "https://github.com/nvim-treesitter/nvim-treesitter"},
-	{ src = "https://github.com/ray-x/go.nvim" }
+	{ src = "https://github.com/danfry1/lume"}
 })
 
 
@@ -45,6 +45,7 @@ require("config.oil")
 require("config.lsp")
 require("config.cmp")
 require("config.pick")
+require("config.harpoon")
 require("config.lualine")
 require("config.git")
 require("config.uv")
@@ -55,6 +56,6 @@ require("config.copilot")
 require("config.preview")
 require("config.gh")
 require("config.imgpaste")
-require("config.pairwork")
+require("config.pets")
 require("config.colorscheme")
 
