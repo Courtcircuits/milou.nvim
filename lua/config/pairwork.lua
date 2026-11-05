@@ -7,12 +7,23 @@
 --   :PairPatches                 telescope list (state, name, age, summary) with a patch preview
 --                                <CR> review in CodeDiff   <C-l> quickfix hunks   <C-o> open .patch
 --                                <C-a> apply               <C-d> drop
---   :PairPatchReview [name]      CodeDiff: working tree vs working tree + patch
+--   :PairPatchReview [name]      CodeDiff: base commit vs an editable scratch worktree with the
+--                                patch applied. <leader>gy in a diff buffer syncs edits back into
+--                                the .patch, <leader>gY discards the scratch worktree.
+--   :PairPatchSync [name]        same sync, without an open review
+--   :PairPatchDiscard [name]     delete a review's scratch worktree, keep the original .patch
 --   :PairPatchQf [name]          quickfix list with one entry per hunk
 --   :PairPatchApply [name]       git apply after confirmation
 --   :PairPatchDrop [name]        delete patch and index entry after confirmation
 -- [name] defaults to the newest patch. <leader>gp opens the list.
 -- States: pending (applies to the tree), applied (already in the tree), stale (no longer applies).
+--
+-- Review builds a scratch git worktree (under the patch dir, never inside the repo) checked out
+-- at a throwaway commit of the current working tree, applies the patch there, and points CodeDiff
+-- at <base commit> vs <worktree>. The worktree side is real files on disk, so CodeDiff treats it
+-- as WORKING and leaves it modifiable -- edit freely, then <leader>gy regenerates the .patch from
+-- it. The worktree is pinned to the tree state when review started and persists across review
+-- re-opens (for resumed edits) until synced, discarded, applied or dropped.
 
 local uv = vim.uv
 local M = {}
@@ -41,6 +52,10 @@ end
 
 local function index_file(root)
 	return vim.fs.joinpath(patch_root(), vim.fs.basename(root), "index.json")
+end
+
+local function worktree_dir(root, entry)
+	return vim.fs.joinpath(patch_root(), vim.fs.basename(root), "worktrees", entry.name)
 end
 
 --- All index entries (every repo sharing this basename), newest first, malformed ones dropped.
@@ -246,49 +261,75 @@ function M.quickfix(entry)
 	vim.cmd("copen")
 end
 
---- Two dangling commits (working tree, working tree + patch) built in a temporary index, then CodeDiff between them.
---- The real index, refs and files are untouched.
+--- Scratch worktree (under the patch dir, never inside the repo) with the patch applied on top of
+--- a throwaway commit of the current working tree; CodeDiff then compares that commit against the
+--- worktree's real files, which stay modifiable. Reused across calls so in-progress edits persist.
 function M.review(entry)
 	local root = repo_root()
 	if not (root and entry) then
 		return vim.notify("pair-work: no patch", vim.log.levels.WARN)
 	end
-	local state = patch_state(root, entry)
-	if state ~= "pending" then
-		return vim.notify(("pair-work: %s is %s, nothing to review"):format(entry.name, state), vim.log.levels.WARN)
+	local wt = worktree_dir(root, entry)
+	if vim.fn.isdirectory(wt) == 0 then
+		local state = patch_state(root, entry)
+		if state ~= "pending" then
+			return vim.notify(("pair-work: %s is %s, nothing to review"):format(entry.name, state), vim.log.levels.WARN)
+		end
+
+		local real_index = vim.trim(git(root, { "rev-parse", "--path-format=absolute", "--git-path", "index" }).stdout)
+		local tmp = vim.fn.tempname()
+		uv.fs_copyfile(real_index, tmp) -- a missing index (fresh repo) is fine
+		local env = {
+			GIT_INDEX_FILE = tmp,
+			GIT_AUTHOR_NAME = "pair-work",
+			GIT_AUTHOR_EMAIL = "pair-work@localhost",
+			GIT_COMMITTER_NAME = "pair-work",
+			GIT_COMMITTER_EMAIL = "pair-work@localhost",
+		}
+		local function run(args)
+			local res = git(root, args, env)
+			if res.code ~= 0 then
+				error(("git %s: %s"):format(table.concat(args, " "), vim.trim(res.stderr)), 0)
+			end
+			return vim.trim(res.stdout)
+		end
+		local ok, base = pcall(function()
+			run({ "add", "-A" })
+			local tree = run({ "write-tree" })
+			return run({ "commit-tree", tree, "-m", "pair-work: working tree" })
+		end)
+		uv.fs_unlink(tmp)
+		if not ok then
+			return vim.notify("pair-work: " .. tostring(base), vim.log.levels.ERROR)
+		end
+
+		vim.fn.mkdir(vim.fs.dirname(wt), "p")
+		local wt_res = git(root, { "worktree", "add", "--detach", "--quiet", wt, base })
+		if wt_res.code ~= 0 then
+			return vim.notify("pair-work: git worktree add failed: " .. vim.trim(wt_res.stderr), vim.log.levels.ERROR)
+		end
+		local apply_res = git(wt, { "apply", entry.file })
+		if apply_res.code ~= 0 then
+			git(root, { "worktree", "remove", "--force", wt })
+			return vim.notify("pair-work: git apply failed: " .. vim.trim(apply_res.stderr), vim.log.levels.ERROR)
+		end
 	end
 
-	local real_index = vim.trim(git(root, { "rev-parse", "--path-format=absolute", "--git-path", "index" }).stdout)
-	local tmp = vim.fn.tempname()
-	uv.fs_copyfile(real_index, tmp) -- a missing index (fresh repo) is fine
-	local env = {
-		GIT_INDEX_FILE = tmp,
-		GIT_AUTHOR_NAME = "pair-work",
-		GIT_AUTHOR_EMAIL = "pair-work@localhost",
-		GIT_COMMITTER_NAME = "pair-work",
-		GIT_COMMITTER_EMAIL = "pair-work@localhost",
-	}
-	local function run(args)
-		local res = git(root, args, env)
-		if res.code ~= 0 then
-			error(("git %s: %s"):format(table.concat(args, " "), vim.trim(res.stderr)), 0)
-		end
-		return vim.trim(res.stdout)
-	end
-	local ok, result = pcall(function()
-		run({ "add", "-A" })
-		local base_tree = run({ "write-tree" })
-		run({ "apply", "--cached", entry.file })
-		local patched_tree = run({ "write-tree" })
-		local base = run({ "commit-tree", base_tree, "-m", "pair-work: working tree" })
-		local patched = run({ "commit-tree", patched_tree, "-p", base, "-m", "pair-work: " .. entry.name })
-		return { base, patched }
-	end)
-	uv.fs_unlink(tmp)
-	if not ok then
-		return vim.notify("pair-work: " .. tostring(result), vim.log.levels.ERROR)
-	end
-	vim.cmd(("CodeDiff --repo %s %s %s"):format(vim.fn.fnameescape(root), result[1], result[2]))
+	local base = vim.trim(git(wt, { "rev-parse", "HEAD" }).stdout)
+	local group = vim.api.nvim_create_augroup("PairWorkReview_" .. entry.name, { clear = true })
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
+		pattern = wt .. "/**",
+		callback = function(args)
+			vim.keymap.set("n", "<leader>gy", function()
+				M.sync(entry)
+			end, { buffer = args.buf, desc = "pair-work: sync edits into patch" })
+			vim.keymap.set("n", "<leader>gY", function()
+				M.discard(entry)
+			end, { buffer = args.buf, desc = "pair-work: discard review worktree" })
+		end,
+	})
+	vim.cmd(("CodeDiff --repo %s %s"):format(vim.fn.fnameescape(wt), base))
 end
 
 local function confirm(prompt)
@@ -300,6 +341,65 @@ local function remove_entry(root, entry)
 		return e.file ~= entry.file
 	end, read_index(root))
 	write_index(root, kept)
+end
+
+local function cleanup_worktree(root, entry)
+	local wt = worktree_dir(root, entry)
+	if vim.fn.isdirectory(wt) == 1 then
+		git(root, { "worktree", "remove", "--force", wt })
+	end
+	pcall(vim.api.nvim_del_augroup_by_name, "PairWorkReview_" .. entry.name)
+end
+
+local function update_entry_timestamp(root, entry)
+	local entries = read_index(root)
+	for _, e in ipairs(entries) do
+		if e.file == entry.file then
+			e.createdAt = entry.createdAt
+		end
+	end
+	write_index(root, entries)
+end
+
+--- Regenerate the .patch from a review worktree's current files (base commit + any edits) and
+--- overwrite the original, so review/apply pick up what was edited in CodeDiff.
+function M.sync(entry)
+	local root = repo_root()
+	if not (root and entry) then
+		return vim.notify("pair-work: no patch", vim.log.levels.WARN)
+	end
+	local wt = worktree_dir(root, entry)
+	if vim.fn.isdirectory(wt) == 0 then
+		return vim.notify("pair-work: no in-progress review for " .. entry.name, vim.log.levels.WARN)
+	end
+	git(wt, { "add", "-A" })
+	local res = git(wt, { "diff", "--cached" })
+	if res.code ~= 0 then
+		return vim.notify("pair-work: git diff failed: " .. vim.trim(res.stderr), vim.log.levels.ERROR)
+	end
+	if vim.trim(res.stdout) == "" then
+		return vim.notify("pair-work: " .. entry.name .. " has no edits to sync (matches base)", vim.log.levels.WARN)
+	end
+	vim.fn.writefile(vim.split(res.stdout:gsub("\n$", ""), "\n"), entry.file)
+	entry.createdAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
+	update_entry_timestamp(root, entry)
+	vim.notify("pair-work: synced edits into " .. entry.name)
+end
+
+--- Drop a review's scratch worktree without touching the .patch.
+function M.discard(entry)
+	local root = repo_root()
+	if not (root and entry) then
+		return vim.notify("pair-work: no patch", vim.log.levels.WARN)
+	end
+	if vim.fn.isdirectory(worktree_dir(root, entry)) == 0 then
+		return vim.notify("pair-work: no in-progress review for " .. entry.name, vim.log.levels.WARN)
+	end
+	if not confirm(("Discard review worktree for '%s'? Unsynced edits are lost."):format(entry.name)) then
+		return
+	end
+	cleanup_worktree(root, entry)
+	vim.notify("pair-work: discarded review worktree for " .. entry.name)
 end
 
 function M.apply(entry)
@@ -323,6 +423,7 @@ function M.apply(entry)
 	vim.fn.mkdir(archive, "p")
 	uv.fs_rename(entry.file, vim.fs.joinpath(archive, vim.fs.basename(entry.file)))
 	remove_entry(root, entry)
+	cleanup_worktree(root, entry)
 	vim.cmd("checktime")
 	vim.notify(("pair-work: applied %s (patch moved to applied/)"):format(entry.name))
 end
@@ -337,6 +438,7 @@ function M.drop(entry)
 	end
 	uv.fs_unlink(entry.file)
 	remove_entry(root, entry)
+	cleanup_worktree(root, entry)
 	vim.notify("pair-work: dropped " .. entry.name)
 end
 
@@ -476,6 +578,8 @@ function M.setup()
 	command("PairPatchQf", M.quickfix)
 	command("PairPatchApply", M.apply)
 	command("PairPatchDrop", M.drop)
+	command("PairPatchSync", M.sync)
+	command("PairPatchDiscard", M.discard)
 	vim.api.nvim_create_user_command("PairPatches", M.pick, {})
 	vim.keymap.set("n", "<leader>gp", M.pick, { desc = "pair-work patches" })
 
