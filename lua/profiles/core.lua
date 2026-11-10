@@ -27,7 +27,8 @@ vim.pack.add({
 	{ src = "https://github.com/neovim/nvim-lspconfig" },
 	{ src = "https://github.com/danfry1/lume" },
     { src = "https://github.com/nvim-treesitter/nvim-treesitter" },
-	{ src = "https://github.com/ray-x/go.nvim" }
+	{ src = "https://github.com/ray-x/go.nvim" },
+    { src = "https://github.com/esmuellert/codediff.nvim" },
 })
 
 

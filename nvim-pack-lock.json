@@ -69,6 +69,10 @@
       "rev": "4efaf373322d9e71eaff31164abb393417cc6f6a",
       "src": "https://github.com/ldelossa/litee.nvim"
     },
+    "live-share.nvim": {
+      "rev": "83d8091a86ed212a0f38e915db41dfd586664ff1",
+      "src": "https://github.com/azratul/live-share.nvim"
+    },
     "lualine.nvim": {
       "rev": "131a558e13f9f28b15cd235557150ccb23f89286",
       "src": "https://github.com/nvim-lualine/lualine.nvim"
@@ -76,6 +80,14 @@
     "lume": {
       "rev": "90e195dc574aa680594983566a396446e6b12b1b",
       "src": "https://github.com/danfry1/lume"
+    },
+    "minuet-ai.nvim": {
+      "rev": "449cf6ac16fbc5529f834c10e5fc1be7c75c3ffb",
+      "src": "https://github.com/milanglacier/minuet-ai.nvim"
+    },
+    "must.nvim": {
+      "rev": "3a12c5836c4e86d52703a2199c3d717096bfdfa5",
+      "src": "https://github.com/undont/must.nvim"
     },
     "neovim": {
       "rev": "9504524e5ed0e326534698f637f9d038ba4cd0ee",

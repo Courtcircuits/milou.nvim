@@ -7,4 +7,5 @@ vim.opt.signcolumn = "yes"
 vim.opt.tabstop = 4
 
 require("profiles.core")
-require("profiles.cloudflare")
+-- require("profiles.cloudflare")
+require("profiles.home")
